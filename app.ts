@@ -5,6 +5,8 @@
 
 // --- 1. DEFINICE TŘÍD A VALIDACE ---
 
+/// <reference path="data.ts" />
+
 abstract class Vozidlo {
     protected spz: string;
     protected zakladniCenaZaDen: number;
