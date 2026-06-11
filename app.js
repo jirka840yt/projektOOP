@@ -1,7 +1,4 @@
-/**
- * Soubor: app.ts
- * Obsahuje logiku tříd a spouštěcí kód aplikace s podrobným zobrazením specifikací.
- */
+/// <reference path="data.ts" />
 var __extends = (this && this.__extends) || (function () {
     var extendStatics = function (d, b) {
         extendStatics = Object.setPrototypeOf ||
@@ -17,36 +14,41 @@ var __extends = (this && this.__extends) || (function () {
         d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
     };
 })();
-/// <reference path="data.ts" />
-// --- 1. DEFINICE TŘÍD A VALIDACE ---
+// --- 1. DEFINICE TRID A VALIDACE ---
 var Vozidlo = /** @class */ (function () {
     function Vozidlo(spz, zakladniCenaZaDen) {
-        // 1. Očištění vstupu
+        // Ocisteni vstupu
         var cistaSpz = spz.toUpperCase().replace(/\s+/g, "");
-        // 2. Kontrola správné délky
+        // Kontrola delky
         if (cistaSpz.length !== 7 && cistaSpz.length !== 8) {
-            throw new Error("SPZ musí obsahovat přesně 7 nebo 8 znaků (nepočítaje mezery).");
+            throw new Error("SPZ musi obsahovat presne 7 nebo 8 znaku.");
         }
-        // 3. Kontrola povolených znaků (jen písmena a čísla)
+        // Kontrola povolenych znaku
         var spzRegex = /^[A-Z0-9]+$/;
         if (!spzRegex.test(cistaSpz)) {
-            throw new Error("SPZ smí obsahovat pouze písmena a číslice.");
+            throw new Error("SPZ smi obsahovat pouze pismena a cislice.");
         }
-        // 4. NOVÉ: Kontrola, zda poslední 4 znaky u 7místné SPZ jsou pouze číslice
+        // Specificka pravidla pro 7mistnou SPZ
         if (cistaSpz.length === 7) {
-            // Vezmeme podřetězec od indexu 3 do konce (tedy poslední 4 znaky)
             var posledniCtyriZnaky = cistaSpz.substring(3);
-            // Regulární výraz pro přesně 4 číslice
             var jenCislaRegex = /^[0-9]{4}$/;
             if (!jenCislaRegex.test(posledniCtyriZnaky)) {
-                throw new Error("U standardní 7místné SPZ musí být poslední 4 znaky výhradně číslice (např. 1A1 1234).");
+                throw new Error("U standardni 7mistne SPZ musi byt posledni 4 znaky vyhradne cislice.");
             }
         }
-        // 5. Zformátování s mezerou pro hezký výpis
+        // Specificka pravidla pro 8mistnou SPZ
+        if (cistaSpz.length === 8) {
+            // Regularni vyraz, ktery kontroluje, zda retezec obsahuje alespoj jedno cislo (0-9)
+            var obsahujeCisloRegex = /[0-9]/;
+            if (!obsahujeCisloRegex.test(cistaSpz)) {
+                throw new Error("Vlastni 8mistna SPZ musi obsahovat alespon jedno cislo.");
+            }
+        }
+        // Zformatovani pro vypis
         this.spz = cistaSpz.substring(0, 3) + " " + cistaSpz.substring(3);
         // Validace ceny
         if (zakladniCenaZaDen <= 0) {
-            throw new Error("Základní cena za den musí být větší než 0.");
+            throw new Error("Zakladni cena za den musi byt vetsi nez 0.");
         }
         this.zakladniCenaZaDen = zakladniCenaZaDen;
     }
@@ -62,7 +64,6 @@ var OsobniAuto = /** @class */ (function (_super) {
         _this.jeLuxusni = jeLuxusni;
         return _this;
     }
-    // NOVÉ: Getter pro získání informace, zda je auto luxusní
     OsobniAuto.prototype.getJeLuxusni = function () {
         return this.jeLuxusni;
     };
@@ -80,12 +81,11 @@ var Dodavka = /** @class */ (function (_super) {
     function Dodavka(spz, zakladniCenaZaDen, nosnostKg) {
         var _this = _super.call(this, spz, zakladniCenaZaDen) || this;
         if (nosnostKg <= 0) {
-            throw new Error("Nosnost dodávky musí být větší než 0.");
+            throw new Error("Nosnost dodavky musi byt vetsi nez 0.");
         }
         _this.nosnostKg = nosnostKg;
         return _this;
     }
-    // NOVÉ: Getter pro získání nosnosti dodávky
     Dodavka.prototype.getNosnostKg = function () {
         return this.nosnostKg;
     };
@@ -96,14 +96,18 @@ var Dodavka = /** @class */ (function (_super) {
     };
     return Dodavka;
 }(Vozidlo));
-// --- 2. OŽIVENÍ OBJEKTŮ A POLYMORFISMUS V KONZOLI ---
+// --- 2. PROPOJENI S DOM A DYNAMIKA ---
 var vozovyPark = [];
 var htmlGrid = document.getElementById("vehicleGrid");
 var inputPocetDni = document.getElementById("pocetDni");
 var formAddVehicle = document.getElementById("addVehicleForm");
 var selectTyp = document.getElementById("typVozidla");
+var inputZakladniCena = document.getElementById("zakladniCena");
 var boxLuxus = document.getElementById("boxLuxus");
+var inputJeLuxusni = document.getElementById("jeLuxusni");
 var boxNosnost = document.getElementById("boxNosnost");
+var inputNosnost = document.getElementById("nosnost");
+var nahledCenyElement = document.getElementById("cenaNahled");
 function nactiDataZDatabaze() {
     for (var _i = 0, surovaDataVozidel_1 = surovaDataVozidel; _i < surovaDataVozidel_1.length; _i++) {
         var data = surovaDataVozidel_1[_i];
@@ -115,7 +119,6 @@ function nactiDataZDatabaze() {
         }
     }
 }
-// UPRAVENÁ FUNKCE: Nyní dynamicícky zjišťuje typ a vytahuje specifická data
 function prekesliRozhrani() {
     htmlGrid.innerHTML = "";
     var pocetDni = parseInt(inputPocetDni.value) || 1;
@@ -124,23 +127,52 @@ function prekesliRozhrani() {
         var cena = vozidlo.spocitejCenuPronajmu(pocetDni);
         var typText = "";
         var specifickyUdaj = "";
-        // Pomocí instanceof zjistíme přesný typ potomka a bezpečně zavoláme jeho getter
         if (vozidlo instanceof OsobniAuto) {
-            typText = "Osobní auto";
-            specifickyUdaj = vozidlo.getJeLuxusni() ? "Třída: Luxusní VIP" : "Třída: Standardní";
+            typText = "Osobni auto";
+            specifickyUdaj = vozidlo.getJeLuxusni() ? "Trida: Luxusni VIP" : "Trida: Standardni";
         }
         else if (vozidlo instanceof Dodavka) {
-            typText = "Nákladní dodávka";
+            typText = "Nakladni dodavka";
             specifickyUdaj = "Nosnost: ".concat(vozidlo.getNosnostKg(), " kg");
         }
         var card = document.createElement("div");
         card.className = "card";
-        card.innerHTML = "\n            <h3>".concat(typText, "</h3>\n            <p><strong>SPZ:</strong> ").concat(vozidlo.getSpz(), "</p>\n            <p><strong>Specifikace:</strong> ").concat(specifickyUdaj, "</p>\n            <div class=\"price\">").concat(cena.toLocaleString(), " K\u010D</div>\n            <p style=\"font-size: 0.8rem; color: #666; margin-top: 5px;\">Cena za ").concat(pocetDni, " dny</p>\n        ");
+        card.innerHTML = "\n            <h3>".concat(typText, "</h3>\n            <p><strong>SPZ:</strong> ").concat(vozidlo.getSpz(), "</p>\n            <p><strong>Specifikace:</strong> ").concat(specifickyUdaj, "</p>\n            <div class=\"price\">").concat(cena.toLocaleString(), " Kc</div>\n            <p style=\"font-size: 0.8rem; color: #666; margin-top: 5px;\">Cena za ").concat(pocetDni, " dny</p>\n        ");
         htmlGrid.appendChild(card);
     }
 }
+// Funkce pro okamzity vypocet nahledu ve formulari
+function aktualizujNahledCeny() {
+    var cenaInput = parseInt(inputZakladniCena.value) || 0;
+    var pocetDni = parseInt(inputPocetDni.value) || 1;
+    if (cenaInput <= 0) {
+        nahledCenyElement.innerText = "0 Kc";
+        return;
+    }
+    try {
+        var docasneVozidlo = void 0;
+        var fiktivniSpz = "AAA 1111";
+        if (selectTyp.value === "osobni") {
+            docasneVozidlo = new OsobniAuto(fiktivniSpz, cenaInput, inputJeLuxusni.checked);
+        }
+        else {
+            var nosnost = parseInt(inputNosnost.value) || 1;
+            docasneVozidlo = new Dodavka(fiktivniSpz, cenaInput, nosnost > 0 ? nosnost : 1);
+        }
+        var vyslednaCena = docasneVozidlo.spocitejCenuPronajmu(pocetDni);
+        nahledCenyElement.innerText = vyslednaCena.toLocaleString() + " Kc";
+    }
+    catch (error) {
+        nahledCenyElement.innerText = "-";
+    }
+}
+// Udalosti pro aktualizaci nahledu
+inputZakladniCena.addEventListener("input", aktualizujNahledCeny);
+inputJeLuxusni.addEventListener("change", aktualizujNahledCeny);
+inputNosnost.addEventListener("input", aktualizujNahledCeny);
 inputPocetDni.addEventListener("input", function () {
     prekesliRozhrani();
+    aktualizujNahledCeny();
 });
 selectTyp.addEventListener("change", function () {
     if (selectTyp.value === "osobni") {
@@ -151,26 +183,28 @@ selectTyp.addEventListener("change", function () {
         boxLuxus.classList.add("hidden");
         boxNosnost.classList.remove("hidden");
     }
+    aktualizujNahledCeny();
 });
 formAddVehicle.addEventListener("submit", function (udalost) {
     udalost.preventDefault();
     var spz = document.getElementById("spz").value;
-    var cena = parseInt(document.getElementById("zakladniCena").value);
+    var cena = parseInt(inputZakladniCena.value);
     try {
         if (selectTyp.value === "osobni") {
-            var jeLuxusni = document.getElementById("jeLuxusni").checked;
-            vozovyPark.push(new OsobniAuto(spz, cena, jeLuxusni));
+            vozovyPark.push(new OsobniAuto(spz, cena, inputJeLuxusni.checked));
         }
         else {
-            var nosnost = parseInt(document.getElementById("nosnost").value);
+            var nosnost = parseInt(inputNosnost.value);
             vozovyPark.push(new Dodavka(spz, cena, nosnost));
         }
         prekesliRozhrani();
         formAddVehicle.reset();
+        aktualizujNahledCeny();
     }
     catch (error) {
-        alert("Chyba při vytváření vozidla: " + error.message);
+        alert("Chyba pri vytvareni vozidla: " + error.message);
     }
 });
 nactiDataZDatabaze();
 prekesliRozhrani();
+aktualizujNahledCeny();
